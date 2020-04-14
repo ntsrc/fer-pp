@@ -37,7 +37,7 @@ def sendFork(rank):
     forks[rank].here = False
 
 def think():
-    thinking = random.randint(2, 6)
+    thinking = random.randint(2, 5)
     printMsg("I'm thinking...")
 
     while thinking:
@@ -74,7 +74,7 @@ def acquireForks():
                 forks[rank].here = True
 
 def eat():
-    eating = random.randint(2,6)
+    eating = random.randint(2, 5)
     printMsg("I'm eating...")
 
     time.sleep(eating)
@@ -99,7 +99,8 @@ def main():
     random.seed(int(time.time()) ^ (myRank << leftRank))
 
     if myRank == 0:
-        print('|'.join(['{:^26}'.format('Philosopher {}'.format(r)) for r in range(numPhils)]) + '\n' + ('-' * (27 * numPhils - 1)), flush = True)
+        print('|'.join(['{:^26}'.format('Philosopher {}'.format(r)) for r in range(numPhils)]), flush = True)
+        print('-' * (27 * numPhils - 1), flush = True)
     comm.Barrier()
 
     while True:
