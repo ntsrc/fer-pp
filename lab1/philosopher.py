@@ -15,6 +15,11 @@ class Tag(IntEnum):
     REQUEST_FORK = auto()
     SEND_FORK = auto()
 
+MAXLEN = 26
+
+MINTIME = 2
+MAXTIME = 5
+
 comm = MPI.COMM_WORLD
 
 numPhils = comm.Get_size()
@@ -28,7 +33,7 @@ rightRank = (myRank + 1) % numPhils
 forks = {leftRank : Fork(myRank == 0, False, False), rightRank : Fork(myRank != (numPhils - 1), False, False)}
 
 def printMsg(msg):
-    print('|'.join(['{:^26}'.format(msg if r == myRank else '') for r in range(numPhils)]), flush = True)
+    print('|'.join([('{:^%d}' % MAXLEN).format(msg if r == myRank else '') for r in range(numPhils)]), flush = True)
 
 def sendFork(rank):
     forks[rank].clean = True
@@ -37,7 +42,7 @@ def sendFork(rank):
     forks[rank].here = False
 
 def think():
-    thinking = random.randint(2, 5)
+    thinking = random.randint(MINTIME, MAXTIME)
     printMsg("I'm thinking...")
 
     while thinking:
@@ -74,7 +79,7 @@ def acquireForks():
                 forks[rank].here = True
 
 def eat():
-    eating = random.randint(2, 5)
+    eating = random.randint(MINTIME, MAXTIME)
     printMsg("I'm eating...")
 
     time.sleep(eating)
@@ -99,8 +104,8 @@ def main():
     random.seed(int(time.time()) ^ (myRank << leftRank))
 
     if myRank == 0:
-        print('|'.join(['{:^26}'.format('Philosopher {}'.format(r)) for r in range(numPhils)]), flush = True)
-        print('-' * (27 * numPhils - 1), flush = True)
+        print('|'.join([('{:^%d}' % MAXLEN).format('Philosopher {}'.format(r)) for r in range(numPhils)]), flush = True)
+        print('-' * ((MAXLEN + 1) * numPhils - 1), flush = True)
     comm.Barrier()
 
     while True:
@@ -109,7 +114,7 @@ def main():
         eat()
         handleRequests() 
 
-        printMsg('-' * 26)
+        printMsg('-' * MAXLEN)
 
 if __name__ == "__main__":
     main()
