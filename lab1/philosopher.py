@@ -77,6 +77,7 @@ def acquireForks():
                 forks[rank].requested = True
             elif tag == Tag.SEND_FORK:
                 forks[rank].here = True
+                printMsg("Recieved fork from " + str(rank))
 
 def eat():
     eating = random.randint(MINTIME, MAXTIME)
