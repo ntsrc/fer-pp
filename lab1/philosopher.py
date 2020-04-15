@@ -105,7 +105,7 @@ def main():
     random.seed(int(time.time()) ^ (myRank << leftRank))
 
     if myRank == 0:
-        print('|'.join([('{:^%d}' % MAXLEN).format('Philosopher {}'.format(r)) for r in range(numPhils)])+'|')
+        print('|'.join([('{:^%d}' % MAXLEN).format('Philosopher {}'.format(r)) for r in range(numPhils)]) + '|')
         print('-' * ((MAXLEN + 1) * numPhils), flush = True)
     comm.Barrier()
 
