@@ -58,7 +58,7 @@ def think():
 
     printMsg('Done thinking')
 
-def acquireForks():
+def getForks():
     printMsg("I'm hungry")
 
     for rank in forks:
@@ -111,7 +111,7 @@ def main():
 
     while True:
         think() 
-        acquireForks()
+        getForks()
         eat()
         handleRequests() 
 
