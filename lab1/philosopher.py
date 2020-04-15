@@ -18,7 +18,7 @@ class Tag(IntEnum):
 MAXLEN = 26
 
 MINTIME = 2
-MAXTIME = 5
+MAXTIME = 8
 
 comm = MPI.COMM_WORLD
 
