@@ -33,7 +33,7 @@ rightRank = (myRank + 1) % numPhils
 forks = {leftRank : Fork(myRank == 0, False, False), rightRank : Fork(myRank != (numPhils - 1), False, False)}
 
 def printMsg(msg):
-    print('|'.join([('{:^%d}' % MAXLEN).format(msg if r == myRank else '') for r in range(numPhils)]), flush = True)
+    print('|'.join([('{:^%d}' % MAXLEN).format(msg if r == myRank else '') for r in range(numPhils)])+'|', flush = True)
 
 def sendFork(rank):
     forks[rank].clean = True
@@ -105,8 +105,8 @@ def main():
     random.seed(int(time.time()) ^ (myRank << leftRank))
 
     if myRank == 0:
-        print('|'.join([('{:^%d}' % MAXLEN).format('Philosopher {}'.format(r)) for r in range(numPhils)]))
-        print('-' * ((MAXLEN + 1) * numPhils - 1), flush = True)
+        print('|'.join([('{:^%d}' % MAXLEN).format('Philosopher {}'.format(r)) for r in range(numPhils)])+'|')
+        print('-' * ((MAXLEN + 1) * numPhils), flush = True)
     comm.Barrier()
 
     while True:
