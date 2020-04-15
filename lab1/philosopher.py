@@ -33,7 +33,7 @@ rightRank = (myRank + 1) % numPhils
 forks = {leftRank : Fork(myRank == 0, False, False), rightRank : Fork(myRank != (numPhils - 1), False, False)}
 
 def printMsg(msg):
-    print('|'.join([('{:^%d}' % MAXLEN).format(msg if r == myRank else '') for r in range(numPhils)])+'|', flush = True)
+    print('|'.join([('{:^%d}' % MAXLEN).format(msg if r == myRank else '') for r in range(numPhils)]) + '|', flush = True)
 
 def sendFork(rank):
     forks[rank].clean = True
