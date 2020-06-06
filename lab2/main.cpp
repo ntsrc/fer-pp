@@ -2,20 +2,18 @@
 #include <iostream>
 #include <cstddef>
 
-constexpr char human = 'P';
-constexpr char comp = 'C';
+constexpr ssize_t height = 7;
+constexpr ssize_t width = 7;
 
 int main()
 {
-	board<7, 7> b;
+	connect4::board<width, height> b;
+	auto player = connect4::human;
 
-	while (true)
+	for (ssize_t col; std::cin >> col; )
 	{
-		size_t col;
-		std::cin >> col;
-
-		b.move(col, human);
-
-		std::cout << b;
+		b.move(player, col);
+		std::cout << b << b.vertical_win(player, col) << ' ' << b.horizontal_win(player, col) << ' ' << b.diagonal_win(player, col) << '\n';
+		player = connect4::other_player(player);
 	}
 }

@@ -1,148 +1,143 @@
-#ifndef BOARD_H
-#define BOARD_H
+#ifndef CONNECT4_BOARD_H
+#define CONNECT4_BOARD_H
 
 #include <cstddef>
 #include <array>
 #include <ostream>
 
-template<size_t rows, size_t cols>
+namespace connect4
+{
+
+enum player : char
+{
+	cpu = 'C', human = 'P', none = '='
+};
+
+inline player other_player(player p)
+{
+	return p == cpu ? human : cpu;
+}
+
+template<ssize_t height, ssize_t width>
 class board
 {
 public:
-	board() { b_.fill('='); top_.fill(0); }
+	board();
 
-	void move(size_t col, char player) { b_[top_[col] * rows + col] = player; ++top_[col]; }
-	void undo(size_t col) { --top_[col]; b_[top_[col] * rows + col] = '='; }
+	auto at(ssize_t row, ssize_t col) const { return data_[row * width + col]; }
 
-	char at(size_t r, size_t c) const { return b_[r * cols + c]; }
+	auto move(player p, ssize_t col) { at(++top_row_[col], col) = p; }
+	auto undo_move(player p, ssize_t col) { at(top_row_[col]--, col) = none; }
 
-	bool vertical_win(char player, size_t col) const;
-	bool horizontal_win(char player, size_t col) const;
-	bool diagonal_win(char player, size_t col) const;
+	auto legal_position(ssize_t row, ssize_t col) const { return row >= 0 && row < height && col >= 0 && col < width; }
 
-	bool win(char player, size_t col) const { return vertical_win(player, col) || horizontal_win(player, col) || diagonal_win(player, col); }
-	
-	std::array<double, cols> move_grades();
+	auto win(player p, ssize_t col) const { return vertical_win(p, col) || horizontal_win(p, col) || diagonal_win(p, col); }
+
+	bool vertical_win(player p, ssize_t col) const;
+	bool horizontal_win(player p, ssize_t col) const;
+	bool diagonal_win(player p, ssize_t col) const;
 
 private:
-	std::array<char, rows*cols> b_;
-	std::array<size_t, cols> top_;
+	static constexpr ssize_t to_win = 4;
+
+	std::array<char, height*width> data_;
+	std::array<ssize_t, width> top_row_;
+
+	auto &at(ssize_t row, ssize_t col) { return data_[row * width + col]; }
 };
 
-template<size_t rows, size_t cols>
-inline bool board<rows, cols>::vertical_win(char player, size_t col) const
+template<ssize_t height, ssize_t width>
+inline board<height, width>::board()
 {
-	auto row = top_[col];
-	auto down = 0u;
-	while (down < 3u)
-	{
-		auto idx = row - down - 1;
-		if (at(idx, col) != player)
-			break;
-		++down;
-		if (idx == 0u)
-			break;
-	}
-
-	return down == 3u;
+	data_.fill(none);
+	top_row_.fill(-1);
 }
 
-template<size_t rows, size_t cols>
-inline bool board<rows, cols>::horizontal_win(char player, size_t col) const
+template<ssize_t height, ssize_t width>
+inline bool board<height, width>::vertical_win(player p, ssize_t col) const
 {
-	auto row = top_[col];
-	auto left = 0u;
-	while (left < 3u)
+	auto row = top_row_[col];
+
+	for (auto i = 1; i < to_win; ++i)
 	{
-		auto idx = col - left - 1;
-		if (at(row, idx) != player)
-			break;
-		++left;
-		if (idx == 0u)
-			break;
+		auto row_idx = row - i;
+		if (row_idx < 0 || at(row_idx, col) != p)
+			return false;
 	}
 
-	auto right = 0u;
-	while (right < 3u)
-	{
-		auto idx = col + right + 1;
-		if (idx == cols || at(row, idx) != player)
-			break;
-		++right;
-	}
-
-	return left + right >= 3u;
+	return true;
 }
 
-template<size_t rows, size_t cols>
-inline bool board<rows, cols>::diagonal_win(char player, size_t col) const
+template<ssize_t height, ssize_t width>
+inline bool board<height, width>::horizontal_win(player p, ssize_t col) const
 {
-	auto row = top_[col];
-	auto upleft = 0u;
-	while (upleft < 3u)
+	auto row = top_row_[col];
+
+	auto n = 1;
+	for (auto dir = -1; dir <= 1; dir += 2)
 	{
-		auto row_idx = row + upleft + 1;
-		auto col_idx = col - upleft - 1;
-		if (at(row_idx, col_idx) != player)
-			break;
-		++upleft;
-		if (row_idx == rows || col_idx == 0u)
-			break;
+		for (auto i = 1; i < to_win; ++i)
+		{
+			auto col_idx = col + dir * i;
+			if (col_idx < 0 || col_idx >= width || at(row, col_idx) != p)
+				break;
+			++n;
+		}
 	}
 
-	auto downright = 0u;
-	while (downright < 3u)
+	return n >= to_win;
+}
+
+template<ssize_t height, ssize_t width>
+inline bool board<height, width>::diagonal_win(player p, ssize_t col) const
+{
+	auto row = top_row_[col];
+
+	auto n = 1;
+	for (auto dir = -1; dir <= 1; dir += 2)
 	{
-		auto row_idx = row - downright - 1;
-		auto col_idx = col + downright + 1;
-		if (at(row_idx, col_idx) != player)
-			break;
-		++downright;
-		if (row_idx == 0u || col_idx == cols)
-			break;
+		for (auto i = 1; i < to_win; ++i)
+		{
+			auto row_idx = row + dir * i;
+			auto col_idx = col + dir * i;
+			if (!legal_position(row_idx, col_idx) || at(row_idx, col_idx) != p)
+				break;
+			++n;
+		}
 	}
 
-	if (upleft + downright >= 3u)
+	if (n >= to_win)
 		return true;
 
-	auto upright = 0u;
-	while (upright < 3u)
+	n = 1;
+	for (auto dir = -1; dir <= 1; dir += 2)
 	{
-		auto row_idx = row + upright + 1;
-		auto col_idx = col + upleft + 1;
-		if (at(row_idx, col_idx) != player)
-			break;
-		++upright;
-		if (row_idx == rows || col_idx == cols)
-			break;
+		for (auto i = 1; i < to_win; ++i)
+		{
+			auto row_idx = row - dir * i;
+			auto col_idx = col + dir * i;
+			if (!legal_position(row_idx, col_idx) || at(row_idx, col_idx) != p)
+				break;
+			++n;
+		}
 	}
 
-	auto downleft = 0u;
-	while (downleft < 3u)
-	{
-		auto row_idx = row - downleft - 1;
-		auto col_idx = col - downleft - 1;
-		if (at(row_idx, col_idx) != player)
-			break;
-		++downleft;
-		if (row_idx == 0u || col_idx == 0u)
-			break;
-	}
-
-	return upright + downleft >= 3u;
+	return n >= to_win;
 }
 
-template<size_t rows, size_t cols>
-inline std::ostream &operator<<(std::ostream &os, const board<rows, cols> &b)
+template<ssize_t height, ssize_t width>
+inline std::ostream &operator<<(std::ostream &os, const board<height, width> &b)
 {
-	for (auto i = rows; i > 0u; --i)
+	for (auto r = height - 1; r >= 0; --r)
 	{
-		for (auto j = 0u; j < cols; ++j)
-			os << b.at(i - 1u, j);
+		for (auto c = 0; c < width; ++c)
+			os << b.at(r, c);
 		os << '\n';
 	}
 
 	return os;
+}
+
 }
 
 #endif
