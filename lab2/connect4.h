@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <vector>
 #include <map>
+#include <cstring>
 
 namespace connect4
 {
@@ -138,6 +139,20 @@ enum tag : int
 	TASK, STOP
 };
 
+template<ssize_t height, size_t width>
+inline void send_task(int rank, const board<height, width> &b, const std::vector<ssize_t> &path)
+{
+	auto board_data_sz = height * width;
+	auto board_top_sz = width * sizeof(ssize_t);
+	auto path_sz = path.size() * sizeof(ssize_t);
+	std::vector<char> msg(board_data_sz + board_top_sz + path_sz);
+	std::memcpy(msg.data(), b.data_.data(), board_data_sz);
+	std::memcpy(msg.data() + board_data_sz, b.top_row_.data(), board_top_sz);
+	std::memcpy(msg.data() + board_data_sz + board_top_sz, path.data(), path_sz);
+
+	MPI_Send();
+}
+
 template<ssize_t height, ssize_t width, ssize_t full_depth, ssize_t task_depth>
 inline std::array<double, width> move_grades(board<height, width> b, player p)
 {
@@ -163,13 +178,8 @@ inline std::array<double, width> move_grades(board<height, width> b, player p)
 			tasks.pop_back();
 			int worker = 1 + tasks.size() % num_workers;
 
-			auto player = p;
-			for (auto m : path)
-			{
-				b.move(player, m);
-				player = other_player(player);
-			}
 
+			send_task(worker, const board &b, task);
 			std::vector<char> msg(height*width + width*sizeof(ssize_t));
 			std::memcpy(msg.data(), b.data_.data(), height*width);
 			std::memcpy(msg.data() + height*width, static_cast<char*>(b.top_.data()), width*sizeof(ssize_t));
