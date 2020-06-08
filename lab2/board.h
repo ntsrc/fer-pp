@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <array>
 #include <ostream>
+#include <vector>
 
 namespace connect4
 {
@@ -19,9 +20,8 @@ inline player other_player(player p)
 }
 
 template<ssize_t height, ssize_t width>
-class board
+struct board
 {
-public:
 	board();
 
 	char at(ssize_t row, ssize_t col) const { return data_[row * width + col]; }
@@ -39,7 +39,6 @@ public:
 	bool horizontal_win(player p, ssize_t col) const;
 	bool diagonal_win(player p, ssize_t col) const;
 
-private:
 	static constexpr ssize_t to_win = 4;
 
 	std::array<char, height*width> data_;
