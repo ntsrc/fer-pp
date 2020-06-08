@@ -15,7 +15,7 @@ enum player : char
 
 inline player other_player(player p)
 {
-	return p == cpu ? human : cpu;
+	return p == cpu ? human : (p == human ? cpu : none);
 }
 
 template<ssize_t height, ssize_t width>
@@ -24,14 +24,16 @@ class board
 public:
 	board();
 
-	auto at(ssize_t row, ssize_t col) const { return data_[row * width + col]; }
+	char at(ssize_t row, ssize_t col) const { return data_[row * width + col]; }
 
-	auto move(player p, ssize_t col) { at(++top_row_[col], col) = p; }
-	auto undo_move(player p, ssize_t col) { at(top_row_[col]--, col) = none; }
+	void move(player p, ssize_t col) { at(++top_row_[col], col) = p; }
+	void undo_move(ssize_t col) { at(top_row_[col]--, col) = none; }
 
-	auto legal_position(ssize_t row, ssize_t col) const { return row >= 0 && row < height && col >= 0 && col < width; }
+	static bool legal_position(ssize_t row, ssize_t col) { return row >= 0 && row < height && col >= 0 && col < width; }
 
-	auto win(player p, ssize_t col) const { return vertical_win(p, col) || horizontal_win(p, col) || diagonal_win(p, col); }
+	bool legal_move(ssize_t col) { return top_row_[col] < height - 1; }
+
+	bool win(player p, ssize_t col) const { return vertical_win(p, col) || horizontal_win(p, col) || diagonal_win(p, col); }
 
 	bool vertical_win(player p, ssize_t col) const;
 	bool horizontal_win(player p, ssize_t col) const;
@@ -43,7 +45,7 @@ private:
 	std::array<char, height*width> data_;
 	std::array<ssize_t, width> top_row_;
 
-	auto &at(ssize_t row, ssize_t col) { return data_[row * width + col]; }
+	char &at(ssize_t row, ssize_t col) { return data_[row * width + col]; }
 };
 
 template<ssize_t height, ssize_t width>
