@@ -1,19 +1,28 @@
 from mpi4py import MPI
-from enum import IntEnum, auto
+from enum import Enum, IntEnum, auto
 
 comm  = MPI.COMM_WORLD
 myRank = comm.Get_rank()
 numWorkers = comm.Get_size() - 1
 
+class Player(Enum):
+    CPU = 'C'
+    HUMAN = 'P'
+    NONE = '='
+
+def other_player(player):
+    return Player.CPU if player == Player.HUMAN else (Player.HUMAN if player == Player.CPU else Player.NONE)
+
 class Board:
     def __init__(self, height, width):
         self.height = height
         self.width = width
-        self.data = [list('=' * width) for r in range(height)]
+        self.data = [[Player.NONE] * width] * height
         self.top_row = [-1] * width
+        self.TO_WIN = 4
 
     def __str__(self):
-        return '\n'.join([''.join(self.data[r]) for r in range(self.height - 1, -1, -1)])
+        return '\n'.join([''.join(self.data[r][c].value for c in range(self.width)) for r in range(self.height - 1, -1, -1)])
 
     def legal_move(self, col):
         return self.top_row[col] < self.height - 1
@@ -26,13 +35,13 @@ class Board:
         self.data[self.top_row[col]][col] = player
 
     def undo_move(self, col):
-        self.data[self.top_row[col]][col] = '='
+        self.data[self.top_row[col]][col] = Player.NONE
         self.top_row[col] -= 1
 
     def vertical_win(self, player, col):
         row = self.top_row[col]
 
-        for i in range(1, 4):
+        for i in range(1, TO_WIN):
             row_idx = row - i
             if row_idx < 0 or self.data[row_idx][col] != player:
                 return False
@@ -44,46 +53,45 @@ class Board:
         n = 1
 
         for dir in [-1, 1]:
-            for i in range(1, 4):
+            for i in range(1, TO_WIN):
                 col_idx = col + dir * i
                 if col_idx < 0 or col_idx >= self.width or self.data[row][col_idx] != player:
                     break
                 n += 1
 
-        return n >= 4
+        return n >= TO_WIN
 
     def diagonal_win(self, player, col):
         row = self.top_row[col]
         n = 1
 
         for dir in [-1, 1]:
-            for i in range(1, 4):
+            for i in range(1, TO_WIN):
                 row_idx = row + dir * i
                 col_idx = col + dir * i
                 if not self.legal_position(row_idx, col_idx) or self.data[row_idx][col_idx] != player:
                     break
                 n += 1
 
-        if n >= 4:
+        if n >= TO_WIN:
             return True
 
         n = 1
 
         for dir in [-1, 1]:
-            for i in range(1, 4):
+            for i in range(1, TO_WIN):
                 row_idx = row - dir * i
                 col_idx = col + dir * i
                 if not self.legal_position(row_idx, col_idx) or self.data[row_idx][col_idx] != player:
                     break
                 n += 1
 
-        return n >= 4
+        return n >= TO_WIN
 
     def win(self, player, col):
         return self.vertical_win(player, col) or self.horizontal_win(player, col) or self.diagonal_win(player, col)
 
-def other_player(player):
-    return 'C' if player == 'P' else 'P'
+"""
 
 TASK_DEPTH = 6
 FULL_DEPTH = 8
@@ -245,3 +253,10 @@ while True:
                             board, player, task = comm.recv(source = 0, tag = tag)
             else:
                 comm.recv(source = 0, tag = tag)
+"""
+
+HEIGHT = 7
+WIDTH = 7
+
+board = Board(HEIGHT, WIDTH)
+print(board)
