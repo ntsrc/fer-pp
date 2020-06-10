@@ -1,9 +1,18 @@
 from mpi4py import MPI
 from enum import Enum, IntEnum, auto
+import sys
+import time
+import signal
 
 comm  = MPI.COMM_WORLD
 myRank = comm.Get_rank()
 numWorkers = comm.Get_size() - 1
+
+TASK_DEPTH = 6
+FULL_DEPTH = 8
+
+HEIGHT = 7
+WIDTH = 7
 
 class Player(Enum):
     CPU = 'C'
@@ -39,11 +48,11 @@ class Board:
         self.topRow[col] -= 1
 
     def verticalWin(self, player, col):
-        row = self.topRrow[col]
+        row = self.topRow[col]
 
         for i in range(1, self.TO_WIN):
-            row_idx = row - i
-            if row_idx < 0 or self.data[row_idx][col] != player:
+            rowIdx = row - i
+            if rowIdx < 0 or self.data[rowIdx][col] != player:
                 return False
 
         return True
@@ -54,8 +63,8 @@ class Board:
 
         for dir in [-1, 1]:
             for i in range(1, self.TO_WIN):
-                col_idx = col + dir * i
-                if col_idx < 0 or col_idx >= self.width or self.data[row][col_idx] != player:
+                colIdx = col + dir * i
+                if colIdx < 0 or colIdx >= self.width or self.data[row][colIdx] != player:
                     break
                 n += 1
 
@@ -67,9 +76,9 @@ class Board:
 
         for dir in [-1, 1]:
             for i in range(1, self.TO_WIN):
-                row_idx = row + dir * i
-                col_idx = col + dir * i
-                if not self.legalPosition(row_idx, col_idx) or self.data[row_idx][col_idx] != player:
+                rowIdx = row + dir * i
+                colIdx = col + dir * i
+                if not self.legalPosition(rowIdx, colIdx) or self.data[rowIdx][colIdx] != player:
                     break
                 n += 1
 
@@ -80,9 +89,9 @@ class Board:
 
         for dir in [-1, 1]:
             for i in range(1, self.TO_WIN):
-                row_idx = row - dir * i
-                col_idx = col + dir * i
-                if not self.legalPosition(row_idx, col_idx) or self.data[row_idx][col_idx] != player:
+                rowIdx = row - dir * i
+                colIdx = col + dir * i
+                if not self.legalPosition(rowIdx, colIdx) or self.data[rowIdx][colIdx] != player:
                     break
                 n += 1
 
@@ -91,16 +100,15 @@ class Board:
     def win(self, player, col):
         return self.verticalWin(player, col) or self.horizontalWin(player, col) or self.diagonalWin(player, col)
 
-TASK_DEPTH = 6
-FULL_DEPTH = 8
 
-def makeTasksRec(board, player, col, task, tasks, depth, task_depth):
+
+def makeTasksRec(board, player, col, task, tasks, depth, taskDepth):
     if board.win(player, col):
         return
 
     task.append(col)
 
-    if depth == task_depth:
+    if depth == taskDepth:
         tasks.append(task)
         return
 
@@ -109,29 +117,29 @@ def makeTasksRec(board, player, col, task, tasks, depth, task_depth):
     for c in range(board.width):
         if board.legalMove(c):
             board.move(next_player, c)
-            makeTasksRec(board, next_player, c, task.copy(), tasks, depth - 1, task_depth)
+            makeTasksRec(board, next_player, c, task.copy(), tasks, depth - 1, taskDepth)
             board.undoMove(c)
 
-def makeTasks(board, player, full_depth, task_depth):
+def makeTasks(board, player, fullDepth, taskDepth):
     tasks = []
 
     for c in range(board.width):
         if board.legalMove(c):
             board.move(player, c)
-            makeTasksRec(board, player, c, [], tasks, full_depth - 1, task_depth)
+            makeTasksRec(board, player, c, [], tasks, fullDepth - 1, taskDepth)
             board.undoMove(c)
 
     return tasks
 
 taskGrades = dict()
 
-def moveGrade(board, player, col, task, depth, task_depth):
+def moveGrade(board, player, col, task, depth, taskDepth):
     if board.win(player, col):
         return 1.0 if player == Player.CPU else -1.0
 
     task.append(col)
 
-    if depth == task_depth:
+    if depth == taskDepth:
         return taskGrades[tuple(task)]
 
     if depth == 0:
@@ -146,16 +154,16 @@ def moveGrade(board, player, col, task, depth, task_depth):
         if board.legalMove(c):
             num_moves += 1
             board.move(next_player, c)
-            res = moveGrade(board, next_player, c, task.copy(), depth - 1, task_depth)
+            res = moveGrade(board, next_player, c, task.copy(), depth - 1, taskDepth)
             board.undoMove(c)
 
-            if res != -1.0:
+            if res > -1.0:
                 all_lose = False
-            if res != 1.0:
+            if res < 1.0:
                 all_win = False
             if res == 1.0 and next_player == Player.CPU:
                 return 1.0
-            if res == -1.0 and next_player == PLayer.HUMAN:
+            if res == -1.0 and next_player == Player.HUMAN:
                 return -1.0
 
             sum += res
@@ -173,26 +181,30 @@ class Tag(IntEnum):
     TASK_GRADE = auto()
     TASK = auto()
     NO_MORE_TASKS = auto()
+    STOP = auto()
 
-def moveGrades(board, player, full_depth, task_depth):
-    tasks = makeTasks(board, player, full_depth, task_depth)
-    tasks_left = len(tasks)
+def moveGrades(board, player, fullDepth, taskDepth):
+    tasks = makeTasks(board, player, fullDepth, taskDepth)
+    tasksLeft = len(tasks)
+
+    start = time.time()
 
     while True:
         status = MPI.Status()
         if comm.Iprobe(status = status):
             rank = status.Get_source()
             tag = status.Get_tag()
+
             if tag == Tag.TASK_GRADE:
                 (task, grade) = comm.recv(source = rank, tag = tag)
                 taskGrades[tuple(task)] = grade
-                tasks_left -= 1
+                tasksLeft -= 1
 
-                if not tasks_left:
+                if not tasksLeft:
                     break
-
             elif tag == Tag.TASK_REQUEST:
                 comm.recv(source = rank, tag = tag)
+
             if tasks:
                 task = tasks.pop()
                 comm.send((board, player, task), dest = rank, tag = Tag.TASK)
@@ -205,28 +217,86 @@ def moveGrades(board, player, full_depth, task_depth):
     for c in range(board.width):
         if board.legalMove(c):
             board.move(player, c)
-            grades[c] = moveGrade(board, player, c, [], full_depth - 1, task_depth)
+            grades[c] = moveGrade(board, player, c, [], fullDepth - 1, taskDepth)
             board.undoMove(c)
+
+    end = time.time()
+    print('duration = %.3f' % (1000.0 * float(end - start)))
 
     taskGrades.clear()
 
     return grades;
 
-def best_move(moveGrades):
+def bestMove(moveGrades):
     return max(zip(moveGrades, range(len(moveGrades))))[1]
 
-if myRank == 0:
-    board = Board(7, 7)
-    print(board, flush = True)
-
-    comm.Barrier()
+def solveTask(taskDepth):
+    board, player, task = comm.recv(source = 0, tag = Tag.TASK)
 
     while True:
-        humanMove = int(input())
-        board.move(Player.HUMAN, humanMove)
+        for i in range(len(task) - 1):
+            board.move(player, task[i])
+            player = otherPlayer(player)
+
+        grade = moveGrade(board, player, task[-1], [], taskDepth, -1)
+        comm.send((task, grade), dest = 0, tag = Tag.TASK_GRADE)
+
+        comm.probe(status = status)
+        tag = status.Get_tag()
+
+        if tag == Tag.STOP:
+            sys.exit(0)
+
+        if tag == Tag.NO_MORE_TASKS:
+            comm.recv(source = 0, tag = Tag.NO_MORE_TASKS)
+            break
+
+        board, player, task = comm.recv(source = 0, tag = Tag.TASK)
+
+def signalHandler(sig, frame):
+    sys.exit(0)
+
+def main():
+    signal.signal(signal.SIGINT, signalHandler)
+
+    if myRank == 0:
+        board = Board(HEIGHT, WIDTH)
         print(board, flush = True)
-        grades = moveGrades(board, Player.CPU, FULL_DEPTH, TASK_DEPTH)
-        print(' '.join(['-' if grade < -2.0 else '%.3f'.format(grade) for grade in grades]))
-        cpuMove = best_move(grades)
-        board.move(Player.CPU, cpuMove)
-        print(board)
+
+        while True:
+            humanMove = int(input())
+            board.move(Player.HUMAN, humanMove)
+
+            print(board, flush = True)
+
+            if board.win(Player.HUMAN, humanMove):
+            break
+
+            grades = moveGrades(board, Player.CPU, FULL_DEPTH, TASK_DEPTH)
+            print(' '.join(['-' if grade < -2.0 else ('%.3f' % grade) for grade in grades]), flush = True)
+
+            cpuMove = bestMove(grades)
+            board.move(Player.CPU, cpuMove)
+
+            print(board, flush = True)
+
+            if board.win(Player.CPU, cpuMove):
+                break
+
+        for rank in range(1, numWorkers + 1):
+            comm.send([], dest = rank, tag = Tag.STOP)
+    else:
+        while True:
+            comm.send([], dest = 0, tag = Tag.TASK_REQUEST)
+
+            status = MPI.Status()
+            comm.probe(status = status)
+            tag = status.Get_tag()
+
+            if tag == Tag.STOP:
+                comm.recv(source = 0, tag = Tag.STOP)
+                break
+            if tag == Tag.NO_MORE_TASKS:
+                comm.recv(source = 0, tag = Tag.NO_MORE_TASKS)
+            else:
+                solveTask(TASK_DEPTH)   
