@@ -10,93 +10,91 @@ class Player(Enum):
     HUMAN = 'P'
     NONE = '='
 
-def other_player(player):
+def otherPlayer(player):
     return Player.CPU if player == Player.HUMAN else (Player.HUMAN if player == Player.CPU else Player.NONE)
 
 class Board:
     def __init__(self, height, width):
         self.height = height
         self.width = width
-        self.data = [[Player.NONE] * width] * height
-        self.top_row = [-1] * width
+        self.data = [[Player.NONE] * width for r in range(height)]
+        self.topRow = [-1] * width
         self.TO_WIN = 4
 
     def __str__(self):
-        return '\n'.join([''.join(self.data[r][c].value for c in range(self.width)) for r in range(self.height - 1, -1, -1)])
+        return '\n'.join([''.join(row[c].value for c in range(self.width)) for row in reversed(self.data)])
 
-    def legal_move(self, col):
-        return self.top_row[col] < self.height - 1
+    def legalMove(self, col):
+        return self.topRow[col] < self.height - 1
 
-    def legal_position(self, row, col):
+    def legalPosition(self, row, col):
         return row >= 0 and row < self.height and col >= 0 and col < self.width
 
     def move(self, player, col):
-        self.top_row[col] += 1
-        self.data[self.top_row[col]][col] = player
+        self.topRow[col] += 1
+        self.data[self.topRow[col]][col] = player
 
-    def undo_move(self, col):
-        self.data[self.top_row[col]][col] = Player.NONE
-        self.top_row[col] -= 1
+    def undoMove(self, col):
+        self.data[self.topRow[col]][col] = Player.NONE
+        self.topRow[col] -= 1
 
-    def vertical_win(self, player, col):
-        row = self.top_row[col]
+    def verticalWin(self, player, col):
+        row = self.topRrow[col]
 
-        for i in range(1, TO_WIN):
+        for i in range(1, self.TO_WIN):
             row_idx = row - i
             if row_idx < 0 or self.data[row_idx][col] != player:
                 return False
 
         return True
 
-    def horizontal_win(self, player, col):
-        row = self.top_row[col]
+    def horizontalWin(self, player, col):
+        row = self.topRow[col]
         n = 1
 
         for dir in [-1, 1]:
-            for i in range(1, TO_WIN):
+            for i in range(1, self.TO_WIN):
                 col_idx = col + dir * i
                 if col_idx < 0 or col_idx >= self.width or self.data[row][col_idx] != player:
                     break
                 n += 1
 
-        return n >= TO_WIN
+        return n >= self.TO_WIN
 
-    def diagonal_win(self, player, col):
-        row = self.top_row[col]
+    def diagonalWin(self, player, col):
+        row = self.topRow[col]
         n = 1
 
         for dir in [-1, 1]:
-            for i in range(1, TO_WIN):
+            for i in range(1, self.TO_WIN):
                 row_idx = row + dir * i
                 col_idx = col + dir * i
-                if not self.legal_position(row_idx, col_idx) or self.data[row_idx][col_idx] != player:
+                if not self.legalPosition(row_idx, col_idx) or self.data[row_idx][col_idx] != player:
                     break
                 n += 1
 
-        if n >= TO_WIN:
+        if n >= self.TO_WIN:
             return True
 
         n = 1
 
         for dir in [-1, 1]:
-            for i in range(1, TO_WIN):
+            for i in range(1, self.TO_WIN):
                 row_idx = row - dir * i
                 col_idx = col + dir * i
-                if not self.legal_position(row_idx, col_idx) or self.data[row_idx][col_idx] != player:
+                if not self.legalPosition(row_idx, col_idx) or self.data[row_idx][col_idx] != player:
                     break
                 n += 1
 
-        return n >= TO_WIN
+        return n >= self.TO_WIN
 
     def win(self, player, col):
-        return self.vertical_win(player, col) or self.horizontal_win(player, col) or self.diagonal_win(player, col)
-
-"""
+        return self.verticalWin(player, col) or self.horizontalWin(player, col) or self.diagonalWin(player, col)
 
 TASK_DEPTH = 6
 FULL_DEPTH = 8
 
-def make_tasks_rec(board, player, col, task, tasks, depth, task_depth):
+def makeTasksRec(board, player, col, task, tasks, depth, task_depth):
     if board.win(player, col):
         return
 
@@ -106,58 +104,58 @@ def make_tasks_rec(board, player, col, task, tasks, depth, task_depth):
         tasks.append(task)
         return
 
-    next_player = other_player(player)
+    next_player = otherPlayer(player)
 
     for c in range(board.width):
-        if board.legal_move(c):
+        if board.legalMove(c):
             board.move(next_player, c)
-            make_tasks_rec(board, next_player, c, task.copy(), tasks, depth - 1, task_depth)
-            board.undo_move(c)
+            makeTasksRec(board, next_player, c, task.copy(), tasks, depth - 1, task_depth)
+            board.undoMove(c)
 
-def make_tasks(board, player, full_depth, task_depth):
+def makeTasks(board, player, full_depth, task_depth):
     tasks = []
 
     for c in range(board.width):
-        if board.legal_move(c):
+        if board.legalMove(c):
             board.move(player, c)
-            make_tasks_rec(board, player, c, [], tasks, full_depth - 1, task_depth)
-            board.undo_move(c)
+            makeTasksRec(board, player, c, [], tasks, full_depth - 1, task_depth)
+            board.undoMove(c)
 
     return tasks
 
-task_grades = dict()
+taskGrades = dict()
 
-def move_grade(board, player, col, task, depth, task_depth):
+def moveGrade(board, player, col, task, depth, task_depth):
     if board.win(player, col):
-        return 1.0 if player == 'C' else -1.0
+        return 1.0 if player == Player.CPU else -1.0
 
     task.append(col)
 
     if depth == task_depth:
-        return task_grades[tuple(task)]
+        return taskGrades[tuple(task)]
 
     if depth == 0:
         return 0.0
 
-    next_player = other_player(player)
+    next_player = otherPlayer(player)
     sum = 0.0
     num_moves = 0
     all_win, all_lose = True, True
 
     for c in range(board.width):
-        if board.legal_move(c):
+        if board.legalMove(c):
             num_moves += 1
             board.move(next_player, c)
-            res = move_grade(board, next_player, c, task.copy(), depth - 1, task_depth)
-            board.undo_move(c)
+            res = moveGrade(board, next_player, c, task.copy(), depth - 1, task_depth)
+            board.undoMove(c)
 
             if res != -1.0:
                 all_lose = False
             if res != 1.0:
                 all_win = False
-            if res == 1.0 and next_player == 'C':
+            if res == 1.0 and next_player == Player.CPU:
                 return 1.0
-            if res == -1.0 and next_player == 'P':
+            if res == -1.0 and next_player == PLayer.HUMAN:
                 return -1.0
 
             sum += res
@@ -176,8 +174,8 @@ class Tag(IntEnum):
     TASK = auto()
     NO_MORE_TASKS = auto()
 
-def move_grades(board, player, full_depth, task_depth):
-    tasks = make_tasks(board, player, full_depth, task_depth)
+def moveGrades(board, player, full_depth, task_depth):
+    tasks = makeTasks(board, player, full_depth, task_depth)
     tasks_left = len(tasks)
 
     while True:
@@ -187,7 +185,7 @@ def move_grades(board, player, full_depth, task_depth):
             tag = status.Get_tag()
             if tag == Tag.TASK_GRADE:
                 (task, grade) = comm.recv(source = rank, tag = tag)
-                task_grades[tuple(task)] = grade
+                taskGrades[tuple(task)] = grade
                 tasks_left -= 1
 
                 if not tasks_left:
@@ -205,58 +203,30 @@ def move_grades(board, player, full_depth, task_depth):
     grades = [-2.0] * board.width
 
     for c in range(board.width):
-        if board.legal_move(c):
+        if board.legalMove(c):
             board.move(player, c)
-            grades[c] = move_grade(board, player, c, [], full_depth - 1, task_depth)
-            board.undo_move(c)
+            grades[c] = moveGrade(board, player, c, [], full_depth - 1, task_depth)
+            board.undoMove(c)
 
-    task_grades.clear()
+    taskGrades.clear()
 
     return grades;
 
+def best_move(moveGrades):
+    return max(zip(moveGrades, range(len(moveGrades))))[1]
+
 if myRank == 0:
     board = Board(7, 7)
-    print(board)
+    print(board, flush = True)
 
-while True:
-    if myRank == 0:
-        col = int(input())
-        board.move('P', col)
+    comm.Barrier()
+
+    while True:
+        humanMove = int(input())
+        board.move(Player.HUMAN, humanMove)
         print(board, flush = True)
-        grades = move_grades(board, 'C', FULL_DEPTH, TASK_DEPTH)
-        print(' '.join('-' if grade < -1.0 else str(grade) for grade in grades), flush = True)
-        move = max(zip(grades, range(len(grades))))[1]
-        board.move('C', move)
+        grades = moveGrades(board, Player.CPU, FULL_DEPTH, TASK_DEPTH)
+        print(' '.join(['-' if grade < -2.0 else '%.3f'.format(grade) for grade in grades]))
+        cpuMove = best_move(grades)
+        board.move(Player.CPU, cpuMove)
         print(board)
-    else:
-        comm.send([], dest = 0, tag = Tag.TASK_REQUEST)
-        status = MPI.Status()
-        if comm.Iprobe(status = status, source = 0):
-            tag = status.Get_tag()
-            if tag == Tag.TASK:
-                board, player, task = comm.recv(source = 0, tag = tag)
-                print(task, flush = True)
-                while True:
-                    for move in task:
-                        board.move(player, move)
-                        player = other_player(player)
-
-                    grade = move_grade(board, player, move, [], TASK_DEPTH - 1, TASK_DEPTH)
-
-                    comm.send((task, grade), dest = 0, tag = Tag.TASK_GRADE)
-                    if comm.Iprobe(status = status, source = 0):
-                        tag = status.Get_tag()
-                        if tag == Tag.NO_MORE_TASKS:
-                            comm.recv(source = 0, tag = tag)
-                            break
-                        else:
-                            board, player, task = comm.recv(source = 0, tag = tag)
-            else:
-                comm.recv(source = 0, tag = tag)
-"""
-
-HEIGHT = 7
-WIDTH = 7
-
-board = Board(HEIGHT, WIDTH)
-print(board)
