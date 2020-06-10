@@ -126,7 +126,7 @@ def move_grade(board, player, col, task, depth, task_depth):
     task.append(col)
 
     if depth == task_depth:
-        return task_grades[task]
+        return task_grades[tuple(task)]
 
     if depth == 0:
         return 0.0
@@ -179,7 +179,7 @@ def move_grades(board, player, full_depth, task_depth):
             tag = status.Get_tag()
             if tag == Tag.TASK_GRADE:
                 (task, grade) = comm.recv(source = rank, tag = tag)
-                task_grades[task] = grade
+                task_grades[tuple(task)] = grade
                 tasks_left -= 1
 
                 if not tasks_left:
@@ -187,7 +187,7 @@ def move_grades(board, player, full_depth, task_depth):
 
             elif tag == Tag.TASK_REQUEST:
                 comm.recv(source = rank, tag = tag)
-            if not tasks.empty():
+            if tasks:
                 task = tasks.pop()
                 comm.send((board, player, task), dest = rank, tag = Tag.TASK)
 
@@ -202,6 +202,8 @@ def move_grades(board, player, full_depth, task_depth):
             grades[c] = move_grade(board, player, c, [], full_depth - 1, task_depth)
             board.undo_move(c)
 
+    task_grades.clear()
+
     return grades;
 
 if myRank == 0:
@@ -212,24 +214,26 @@ while True:
     if myRank == 0:
         col = int(input())
         board.move('P', col)
-        print(board)
+        print(board, flush = True)
         grades = move_grades(board, 'C', FULL_DEPTH, TASK_DEPTH)
-        print(' '.join('-' if grade < -1.0 else str(grade) for grade in grades))
+        print(' '.join('-' if grade < -1.0 else str(grade) for grade in grades), flush = True)
         move = max(zip(grades, range(len(grades))))[1]
-        board.move('P', move)
+        board.move('C', move)
+        print(board)
     else:
         comm.send([], dest = 0, tag = Tag.TASK_REQUEST)
         status = MPI.Status()
         if comm.Iprobe(status = status, source = 0):
             tag = status.Get_tag()
-            if tag == TASK:
+            if tag == Tag.TASK:
                 board, player, task = comm.recv(source = 0, tag = tag)
+                print(task, flush = True)
                 while True:
                     for move in task:
                         board.move(player, move)
                         player = other_player(player)
 
-                    grade = move_grade(board, player, move, [], task_depth - 1, task_depth)
+                    grade = move_grade(board, player, move, [], TASK_DEPTH - 1, TASK_DEPTH)
 
                     comm.send((task, grade), dest = 0, tag = Tag.TASK_GRADE)
                     if comm.Iprobe(status = status, source = 0):
