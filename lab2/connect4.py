@@ -205,7 +205,7 @@ def moveGrades(board, player, fullDepth, taskDepth):
 
                 if not tasksLeft:
                     break
-            elif tag == Tag.TASK_REQUEST:
+            if tag == Tag.TASK_REQUEST:
                 comm.recv(source = rank, tag = tag)
 
             if tasks:
@@ -276,7 +276,7 @@ def main():
             grades = moveGrades(board, Player.CPU, FULL_DEPTH, TASK_DEPTH)
             end = time.time()
 
-            print('duration = {}'.format(1000 * (end - start)))
+            print('duration = {}'.format(1000 * int(end - start)))
             print(' '.join(['-' if grade < -2.0 else ('%.3f' % grade) for grade in grades]), flush = True)
             
             cpuMove = bestMove(grades)
