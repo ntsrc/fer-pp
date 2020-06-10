@@ -43,6 +43,13 @@ class Board:
         self.topRow[col] += 1
         self.data[self.topRow[col]][col] = player
 
+    def multiMove(self, player, cols):
+        for col in cols:
+            self.move(player, col)
+            player = otherPlayer(player)
+
+        return player 
+
     def undoMove(self, col):
         self.data[self.topRow[col]][col] = Player.NONE
         self.topRow[col] -= 1
@@ -187,8 +194,6 @@ def moveGrades(board, player, fullDepth, taskDepth):
     tasks = makeTasks(board, player, fullDepth, taskDepth)
     tasksLeft = len(tasks)
 
-    start = time.time()
-
     while True:
         status = MPI.Status()
         if comm.Iprobe(status = status):
@@ -220,11 +225,6 @@ def moveGrades(board, player, fullDepth, taskDepth):
             grades[c] = moveGrade(board, player, c, [], fullDepth - 1, taskDepth)
             board.undoMove(c)
 
-    end = time.time()
-    print('duration = %.3f' % (1000.0 * float(end - start)))
-
-    taskGrades.clear()
-
     return grades;
 
 def bestMove(moveGrades):
@@ -234,13 +234,12 @@ def solveTask(taskDepth):
     board, player, task = comm.recv(source = 0, tag = Tag.TASK)
 
     while True:
-        for i in range(len(task) - 1):
-            board.move(player, task[i])
-            player = otherPlayer(player)
+        player = board.multiMove(player, task[:-1])
 
         grade = moveGrade(board, player, task[-1], [], taskDepth, -1)
         comm.send((task, grade), dest = 0, tag = Tag.TASK_GRADE)
 
+        status = MPI.Status()
         comm.probe(status = status)
         tag = status.Get_tag()
 
@@ -270,11 +269,15 @@ def main():
             print(board, flush = True)
 
             if board.win(Player.HUMAN, humanMove):
-            break
+                break
 
+            start = time.time()
             grades = moveGrades(board, Player.CPU, FULL_DEPTH, TASK_DEPTH)
-            print(' '.join(['-' if grade < -2.0 else ('%.3f' % grade) for grade in grades]), flush = True)
+            end = time.time()
 
+            print('duration = {}'.format(1000 * (end - start)))
+            print(' '.join(['-' if grade < -2.0 else ('%.3f' % grade) for grade in grades]), flush = True)
+            
             cpuMove = bestMove(grades)
             board.move(Player.CPU, cpuMove)
 
@@ -299,4 +302,7 @@ def main():
             if tag == Tag.NO_MORE_TASKS:
                 comm.recv(source = 0, tag = Tag.NO_MORE_TASKS)
             else:
-                solveTask(TASK_DEPTH)   
+                solveTask(TASK_DEPTH)
+
+if __name__ == '__main__':
+    main()
