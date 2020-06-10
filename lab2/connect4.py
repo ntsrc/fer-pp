@@ -107,8 +107,6 @@ class Board:
     def win(self, player, col):
         return self.verticalWin(player, col) or self.horizontalWin(player, col) or self.diagonalWin(player, col)
 
-
-
 def makeTasksRec(board, player, col, task, tasks, depth, taskDepth):
     if board.win(player, col):
         return
@@ -257,6 +255,9 @@ def signalHandler(sig, frame):
 
 def main():
     signal.signal(signal.SIGINT, signalHandler)
+
+    if numWorkers < 1:
+        sys.exit('At least 2 processes required (master + worker)')
 
     if myRank == 0:
         board = Board(HEIGHT, WIDTH)
