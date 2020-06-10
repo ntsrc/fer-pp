@@ -261,7 +261,6 @@ def main():
 
     if myRank == 0:
         board = Board(HEIGHT, WIDTH)
-        print(board, flush = True)
 
         while True:
             humanMove = int(input())
@@ -276,7 +275,7 @@ def main():
             grades = moveGrades(board, Player.CPU, FULL_DEPTH, TASK_DEPTH)
             end = time.time()
 
-            print('duration = {}'.format(1000 * int(end - start)))
+            # print('duration = {}'.format(int(1000 * (end - start))))
             print(' '.join(['-' if grade < -2.0 else ('%.3f' % grade) for grade in grades]), flush = True)
             
             cpuMove = bestMove(grades)
