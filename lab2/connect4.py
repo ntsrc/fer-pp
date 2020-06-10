@@ -223,7 +223,7 @@ def moveGrades(board, player, fullDepth, taskDepth):
             grades[c] = moveGrade(board, player, c, [], fullDepth - 1, taskDepth)
             board.undoMove(c)
 
-    return grades;
+    return grades
 
 def bestMove(moveGrades):
     return max(zip(moveGrades, range(len(moveGrades))))[1]
